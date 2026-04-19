@@ -54,9 +54,7 @@ This batch script will automatically:
 
 ## Tech Stack Usage Breakdown
 
----
-
-### ✅ **ACTIVELY USED**
+### Frontend:
 
 #### Frontend: Next.js / React
 - **Where:** Entire UI framework  
@@ -82,9 +80,9 @@ This batch script will automatically:
   - Imported in `dashboard/page.js`  
   - Used: `<BarChart>`, `<PieChart>`, `<Bar>`, `<Pie>` components
 
----
+### Backend:
 
-### Backend: FastAPI (Python)
+#### Backend: FastAPI (Python)
 - **Where:** REST API server (main.py)  
 - **Why:** Modern, fast async framework for building APIs  
 - **Evidence:** `fastapi==0.135.1` in requirements, routing decorators `@router.get()`, `@router.post()`
@@ -108,7 +106,7 @@ This batch script will automatically:
 - **Why:** Real-time stock/index prices  
 - **Evidence:** market.py uses `yfinance.Ticker()` to fetch market data
 
----
+
 
 ### Databases
 
@@ -122,7 +120,7 @@ This batch script will automatically:
 - **Why:** Stores document embeddings for retrieval-augmented generation  
 - **Evidence:** engine.py extensively uses ChromaDB for indexing and retrieval
 
----
+
 
 ### AI Engine
 
@@ -155,7 +153,7 @@ This batch script will automatically:
 - **Why:** Local model support if Gemini is unavailable  
 - **Evidence:** `ollama==0.6.1`, optional provider in `RAGSystem.initialize()`
 
----
+
 
 ## Summary Table
 
