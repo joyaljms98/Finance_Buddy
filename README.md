@@ -170,7 +170,6 @@ This batch script will automatically:
 | ChromaDB | — | ✅ | Vector DB | ✅ Yes |
 | **Google GenAI** | — | ✅ | AI | ✅ **Yes** (Gemini model) |
 | **LangChain** | — | ✅ | AI | ✅ **Yes** (orchestration) |
-| Moondream | — | — | Vision | ❌ **NO** (only in README) |
 
 ---
 
