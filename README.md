@@ -52,13 +52,127 @@ This batch script will automatically:
 
 ---
 
-## 🛠 Tech Stack
-*   **Frontend:** Next.js (React), Tailwind CSS, Lucide React, Recharts.
-*   **Backend:** FastAPI (Python), Python-Jose (JWT), Bcrypt.
-*   **Databases:** 
-    *   **MongoDB:** Document persistence for users and financial data.
-    *   **ChromaDB:** Vector storage for RAG semantic retrieval.
-*   **AI Engine:** Google GenAI SDK, Moondream, LangChain.
+## Tech Stack Usage Breakdown
+
+---
+
+### ✅ **ACTIVELY USED**
+
+#### Frontend: Next.js / React
+- **Where:** Entire UI framework  
+- **Why:** Server-side rendering, optimized performance, file-based routing  
+- **Evidence:** `next.config.ts`, all pages in `src/app/`
+
+#### Frontend: Tailwind CSS
+- **Where:** All component styling  
+- **Why:** Utility-first CSS framework for rapid UI development  
+- **Evidence:** `tailwind.config.ts`, `globals.css`, className utilities across components
+
+#### Frontend: **Lucide React** ⭐
+- **Where:** Icons throughout the entire UI (50+ imports found)  
+- **Why:** Lightweight, tree-shakeable icon library  
+- **Evidence:**  
+  - `from 'lucide-react'` in 30+ component files  
+  - Usage: `<TrendingUp />`, `<Send />`, `<Bot />`, `<Target />`, etc.
+
+#### Frontend: **Recharts** ⭐
+- **Where:** Dashboard charts and visualizations  
+- **Why:** React charting library for financial data visualization  
+- **Evidence:**  
+  - Imported in `dashboard/page.js`  
+  - Used: `<BarChart>`, `<PieChart>`, `<Bar>`, `<Pie>` components
+
+---
+
+### Backend: FastAPI (Python)
+- **Where:** REST API server (main.py)  
+- **Why:** Modern, fast async framework for building APIs  
+- **Evidence:** `fastapi==0.135.1` in requirements, routing decorators `@router.get()`, `@router.post()`
+
+#### Backend: **Bcrypt** ⭐
+- **Where:** Password hashing and verification  
+- **Why:** Secure password storage  
+- **Evidence:**  
+  - security.py: `bcrypt.hashpw()`, `bcrypt.checkpw()`  
+  - Used in auth: auth.py
+
+#### Backend: **Python-Jose (JWT)** ⭐
+- **Where:** Token authentication  
+- **Why:** JWT token generation and validation for user sessions  
+- **Evidence:**  
+  - security.py: `jwt.encode()` for creating tokens  
+  - deps.py: `jwt.decode()` for validating tokens
+
+#### yfinance
+- **Where:** Market data fetching  
+- **Why:** Real-time stock/index prices  
+- **Evidence:** market.py uses `yfinance.Ticker()` to fetch market data
+
+---
+
+### Databases
+
+#### MongoDB
+- **Where:** Primary document store for users, articles, feedback, cashbook entries  
+- **Why:** Flexible schema for diverse financial data  
+- **Evidence:** mongodb.py, collections accessed in all API endpoints
+
+#### ChromaDB
+- **Where:** Vector database for RAG semantic search  
+- **Why:** Stores document embeddings for retrieval-augmented generation  
+- **Evidence:** engine.py extensively uses ChromaDB for indexing and retrieval
+
+---
+
+### AI Engine
+
+#### **Google GenAI SDK** ⭐
+- **Where:** Gemini model integration for chatbot  
+- **Why:** LLM for financial advice generation  
+- **Evidence:**  
+  - `google-generativeai==0.8.6`, `google-genai>=1.0.0` in requirements.txt  
+  - engine.py:  
+    - `GeminiEmbeddingFunction` class for embeddings  
+    - `_gemini_stream()` method for streaming responses  
+    - Gemini model: `"gemini-2.0-flash"`
+
+#### **LangChain** ⭐
+- **Where:** LLM orchestration layer  
+- **Why:** Abstracts AI provider interactions, handles message formatting  
+- **Evidence:**  
+  - engine.py imports:  
+    - `from langchain_ollama import ChatOllama, OllamaEmbeddings`  
+    - `from langchain.schema import HumanMessage, SystemMessage`  
+  - Used for Ollama fallback support
+
+#### Sentence Transformers
+- **Where:** Text embeddings for similarity search  
+- **Why:** Backup embeddings provider  
+- **Evidence:** `sentence-transformers==3.3.1` in requirements.txt
+
+#### Ollama
+- **Where:** Fallback LLM provider  
+- **Why:** Local model support if Gemini is unavailable  
+- **Evidence:** `ollama==0.6.1`, optional provider in `RAGSystem.initialize()`
+
+---
+
+## Summary Table
+
+| Tech | Frontend | Backend | Status | Actively Used? |
+|------|----------|---------|--------|---|
+| Next.js | ✅ | — | Core | ✅ Yes |
+| Tailwind CSS | ✅ | — | Core | ✅ Yes |
+| **Lucide React** | ✅ | — | Core | ✅ **Yes** (50+ icon imports) |
+| **Recharts** | ✅ | — | Data viz | ✅ **Yes** (charts on dashboard) |
+| FastAPI | — | ✅ | Core | ✅ Yes |
+| **Bcrypt** | — | ✅ | Security | ✅ **Yes** (password hashing) |
+| **Python-Jose** | — | ✅ | Auth | ✅ **Yes** (JWT tokens) |
+| MongoDB | — | ✅ | Database | ✅ Yes |
+| ChromaDB | — | ✅ | Vector DB | ✅ Yes |
+| **Google GenAI** | — | ✅ | AI | ✅ **Yes** (Gemini model) |
+| **LangChain** | — | ✅ | AI | ✅ **Yes** (orchestration) |
+| Moondream | — | — | Vision | ❌ **NO** (only in README) |
 
 ---
 
@@ -85,3 +199,16 @@ This batch script will automatically:
 ---
 
 *Last Updated: April 2026*
+
+
+
+
+
+
+
+
+
+
+
+
+
