@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+dist/
+build/
+venv/
+env/
+.env
+.venv/
+
+# Next.js
+.next/
+out/
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Databases & Vector Stores (Local ChromaDB should be built from RAG_Source_Docs)
+**/chroma_db/
+*.db
+*.sqlite3
+
+# Logs & Debug
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS specific
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Workspace/IDE
+.vscode/
+.idea/
+
+# Sync/Temporary Files
+sync.ffs_db
+notes.txt
