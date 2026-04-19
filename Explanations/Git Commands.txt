@@ -1,0 +1,36 @@
+# Initialise Git in the terminal
+git init 
+
+# Stages the new files
+git add .
+
+# Commit your files
+git commit -m "Initial commit"
+
+# Link your local project to your GitHub repository
+git remote add origin https://github.com/joyaljms98/Finance_Buddy.git
+
+# Push/uploads the code to GitHub
+git push -u origin main
+
+
+
+# What to do next time you make changes
+
+git add . 
+
+git commit -m "Brief description of what you changed" 
+
+git push
+
+
+
+
+
+
+
+# optional
+# Rename your main branch
+# By default, older Git versions sometimes name the default branch master. GitHub prefers main. This command ensures your branch is named main so it matches GitHub perfectly:
+
+git branch -M main
