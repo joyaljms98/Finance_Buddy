@@ -56,24 +56,24 @@ This batch script will automatically:
 
 ### Frontend:
 
-#### Frontend: Next.js / React
+#### 1. Frontend: Next.js / React
 - **Where:** Entire UI framework  
 - **Why:** Server-side rendering, optimized performance, file-based routing  
 - **Evidence:** `next.config.ts`, all pages in `src/app/`
 
-#### Frontend: Tailwind CSS
+#### 2. Frontend: Tailwind CSS
 - **Where:** All component styling  
 - **Why:** Utility-first CSS framework for rapid UI development  
 - **Evidence:** `tailwind.config.ts`, `globals.css`, className utilities across components
 
-#### Frontend: **Lucide React** ⭐
+#### 3. Frontend: **Lucide React** ⭐
 - **Where:** Icons throughout the entire UI (50+ imports found)  
 - **Why:** Lightweight, tree-shakeable icon library  
 - **Evidence:**  
   - `from 'lucide-react'` in 30+ component files  
   - Usage: `<TrendingUp />`, `<Send />`, `<Bot />`, `<Target />`, etc.
 
-#### Frontend: **Recharts** ⭐
+#### 4. Frontend: **Recharts** ⭐
 - **Where:** Dashboard charts and visualizations  
 - **Why:** React charting library for financial data visualization  
 - **Evidence:**  
@@ -82,26 +82,26 @@ This batch script will automatically:
 
 ### Backend:
 
-#### Backend: FastAPI (Python)
+#### 1. Backend: FastAPI (Python)
 - **Where:** REST API server (main.py)  
 - **Why:** Modern, fast async framework for building APIs  
 - **Evidence:** `fastapi==0.135.1` in requirements, routing decorators `@router.get()`, `@router.post()`
 
-#### Backend: **Bcrypt** ⭐
+#### 2. Backend: **Bcrypt** ⭐
 - **Where:** Password hashing and verification  
 - **Why:** Secure password storage  
 - **Evidence:**  
   - security.py: `bcrypt.hashpw()`, `bcrypt.checkpw()`  
   - Used in auth: auth.py
 
-#### Backend: **Python-Jose (JWT)** ⭐
+#### 3. Backend: **Python-Jose (JWT)** ⭐
 - **Where:** Token authentication  
 - **Why:** JWT token generation and validation for user sessions  
 - **Evidence:**  
   - security.py: `jwt.encode()` for creating tokens  
   - deps.py: `jwt.decode()` for validating tokens
 
-#### yfinance
+#### 4. yfinance
 - **Where:** Market data fetching  
 - **Why:** Real-time stock/index prices  
 - **Evidence:** market.py uses `yfinance.Ticker()` to fetch market data
@@ -110,12 +110,12 @@ This batch script will automatically:
 
 ### Databases
 
-#### MongoDB
+#### 1. MongoDB
 - **Where:** Primary document store for users, articles, feedback, cashbook entries  
 - **Why:** Flexible schema for diverse financial data  
 - **Evidence:** mongodb.py, collections accessed in all API endpoints
 
-#### ChromaDB
+#### 2. ChromaDB
 - **Where:** Vector database for RAG semantic search  
 - **Why:** Stores document embeddings for retrieval-augmented generation  
 - **Evidence:** engine.py extensively uses ChromaDB for indexing and retrieval
@@ -124,7 +124,7 @@ This batch script will automatically:
 
 ### AI Engine
 
-#### **Google GenAI SDK** ⭐
+#### 1. **Google GenAI SDK** ⭐
 - **Where:** Gemini model integration for chatbot  
 - **Why:** LLM for financial advice generation  
 - **Evidence:**  
@@ -134,7 +134,7 @@ This batch script will automatically:
     - `_gemini_stream()` method for streaming responses  
     - Gemini model: `"gemini-2.0-flash"`
 
-#### **LangChain** ⭐
+#### 2. **LangChain** ⭐
 - **Where:** LLM orchestration layer  
 - **Why:** Abstracts AI provider interactions, handles message formatting  
 - **Evidence:**  
@@ -143,12 +143,12 @@ This batch script will automatically:
     - `from langchain.schema import HumanMessage, SystemMessage`  
   - Used for Ollama fallback support
 
-#### Sentence Transformers
+#### 3. Sentence Transformers
 - **Where:** Text embeddings for similarity search  
 - **Why:** Backup embeddings provider  
 - **Evidence:** `sentence-transformers==3.3.1` in requirements.txt
 
-#### Ollama
+#### 4. Ollama
 - **Where:** Fallback LLM provider  
 - **Why:** Local model support if Gemini is unavailable  
 - **Evidence:** `ollama==0.6.1`, optional provider in `RAGSystem.initialize()`
