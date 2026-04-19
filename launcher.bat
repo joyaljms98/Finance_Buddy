@@ -64,7 +64,7 @@ if "%db_mode%"=="2" (
     powershell -Command "(Get-Content -Path '%ENV_FILE%') -replace '^MONGODB_URI=.*', ('MONGODB_URI=' + [char]34 + 'mongodb://localhost:27017/' + [char]34) | Set-Content -Path '%ENV_FILE%'"
 ) else (
     echo [DB] Modifying backend environment to use MongoDB Atlas ^(Cloud^)...
-    powershell -Command "(Get-Content -Path '%ENV_FILE%') -replace '^MONGODB_URI=.*', ('MONGODB_URI=' + [char]34 + 'mongodb+srv://<username>:<password>@cluster0.ubu4x7s.mongodb.net/?appName=Cluster0' + [char]34) | Set-Content -Path '%ENV_FILE%'"
+    powershell -Command "$envContent = Get-Content -Path '%ENV_FILE%'; $atlasLine = $envContent | Select-String -Pattern '^MONGODB_ATLAS_URI='; if ($atlasLine) { $atlasUri = ($atlasLine.ToString() -split '=', 2)[1]; $envContent -replace '^MONGODB_URI=.*', ('MONGODB_URI=' + $atlasUri) | Set-Content -Path '%ENV_FILE%' } else { echo '[ERROR] MONGODB_ATLAS_URI not found in .env file' }"
 )
 echo.
 

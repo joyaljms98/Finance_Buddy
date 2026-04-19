@@ -142,13 +142,13 @@ class RAGSystem:
             base_dir = Path(__file__).resolve().parent
             db_dir = base_dir / "chroma_db"
 
-            if provider == "gemini":
-                from app.core.config import get_settings
-                settings = get_settings()
-                api_key = settings.GEMINI_API_KEY
-                if not api_key:
-                    raise ValueError("GEMINI_API_KEY is not set in Backend/.env")
+            # Always set up ChromaDB with Gemini embeddings for RAG retrieval
+            # This works regardless of whether chat uses Gemini or Ollama
+            from app.core.config import get_settings
+            app_settings = get_settings()
+            api_key = app_settings.GEMINI_API_KEY
 
+            if api_key:
                 from google import genai
                 self._genai_client = genai.Client(api_key=api_key)
                 self._embedding_fn = GeminiEmbeddingFunction(api_key=api_key, model=embedding_model)
@@ -160,8 +160,10 @@ class RAGSystem:
                     name="rag_docs",
                     embedding_function=self._embedding_fn,
                 )
+            else:
+                print("[RAG] WARNING: GEMINI_API_KEY not set. RAG document retrieval will be disabled.")
 
-            elif provider == "ollama":
+            if provider == "ollama":
                 from langchain_ollama import ChatOllama, OllamaEmbeddings
 
                 self._ollama_llm = ChatOllama(
@@ -169,14 +171,7 @@ class RAGSystem:
                     base_url=ollama_endpoint,
                     temperature=temperature,
                 )
-                # For Ollama, we use a simpler in-memory approach
-                # or use ChromaDB with Ollama embeddings via langchain
-                chroma_path = str(db_dir / "ollama")
-                os.makedirs(chroma_path, exist_ok=True)
-                # Ollama doesn't need ChromaDB for simple chat
-                self._chroma_client = None
-                self._collection = None
-            else:
+            elif provider != "gemini":
                 raise ValueError(f"Unknown provider: {provider}")
 
             self.is_initialized = True

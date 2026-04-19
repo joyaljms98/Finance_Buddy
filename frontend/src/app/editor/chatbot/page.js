@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useContext, useState } from 'react';
-import { Bot, Save, Database, Sliders, MessageSquare, PanelLeftOpen, PanelLeftClose, AlertTriangle, Lock } from 'lucide-react';
+import { Bot, Save, Database, Sliders, MessageSquare, PanelLeftOpen, PanelLeftClose, AlertTriangle, Lock, RefreshCw, Loader2, CheckCircle2 } from 'lucide-react';
 import { EditorSidebarContext } from '@/components/EditorSidebarWrapper';
 import { usePermissions } from '@/context/PermissionsContext';
 import { useUsers } from '@/context/UsersContext';
@@ -12,6 +12,7 @@ import api from '@/lib/api';
 const EditorChatbot = () => {
     const { isSidebarOpen, setIsSidebarOpen } = useContext(EditorSidebarContext);
     const [isTestDrawerOpen, setIsTestDrawerOpen] = useState(false);
+    const [reindexState, setReindexState] = useState({ status: 'idle', progress: 0, total: 0 });
     const { checkPermission } = usePermissions();
     const { activeUser } = useUsers();
     const editorId = activeUser?.user_id;
@@ -22,7 +23,7 @@ const EditorChatbot = () => {
         ai_model: 'gemini-2.0-flash',
         provider: 'gemini',
         ollama_endpoint: 'http://127.0.0.1:11434',
-        embedding_model: 'models/gemini-embedding-001',
+        embedding_model: 'gemini-embedding-001',
         temperature: 0.7,
         max_tokens: 500,
         chunk_size: 1000,
@@ -76,6 +77,29 @@ const EditorChatbot = () => {
             console.error(err);
             alert("Failed to save settings.");
         }
+    };
+
+    const handleReindex = async () => {
+        try {
+            await api.post('/chatbot/reindex', {});
+            setReindexState({ status: 'indexing', progress: 0, total: 0 });
+            startPolling();
+        } catch (err) {
+            console.error(err);
+            alert("Failed to start re-indexing. Please check your folder path.");
+        }
+    };
+
+    const startPolling = () => {
+        const poll = setInterval(async () => {
+            try {
+                const res = await api.get('/chatbot/reindex/progress');
+                setReindexState(res.data);
+                if (res.data.status !== 'indexing') {
+                    clearInterval(poll);
+                }
+            } catch (e) { clearInterval(poll); }
+        }, 1500);
     };
 
     return (
@@ -212,7 +236,7 @@ const EditorChatbot = () => {
                                 </div>
 
                                 <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl text-sm text-blue-800">
-                                    <span className="font-bold">Knowledge Base Status:</span> 24 Documents Indexed. Last synced 2 hours ago.
+                                    <span className="font-bold">Knowledge Base Status:</span> Please ensure your files are inside <code>{settings.rag_folder_path || "the folder"}</code> before syncing.
                                 </div>
 
                                 <div className="space-y-4">
@@ -237,8 +261,42 @@ const EditorChatbot = () => {
                                         />
                                         <p className="text-xs text-gray-500 mt-1">Number of similar documents to retrieve for context.</p>
                                     </div>
-                                    <div className="pt-4 border-t border-gray-100">
-                                        <button disabled={!canEditSettings} className="text-blue-600 font-medium hover:text-blue-700 text-sm disabled:text-gray-400 disabled:cursor-not-allowed transition-colors">Force Re-index Knowledge Base</button>
+                                    <div className="pt-4 border-t border-gray-100 space-y-3">
+                                        <div className="flex items-center gap-3">
+                                            <button 
+                                                onClick={handleReindex}
+                                                disabled={!canEditSettings || reindexState.status === 'indexing'}
+                                                className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-all active:scale-95 disabled:cursor-not-allowed flex items-center gap-2"
+                                            >
+                                                {reindexState.status === 'indexing' ? (
+                                                    <Loader2 size={16} className="animate-spin" />
+                                                ) : (
+                                                    <RefreshCw size={16} />
+                                                )}
+                                                {reindexState.status === 'indexing' ? 'Syncing...' : 'Sync Knowledge Base'}
+                                            </button>
+                                            {reindexState.status === 'completed' && (
+                                                <span className="text-green-600 text-sm font-medium flex items-center gap-1 animate-in fade-in">
+                                                    <CheckCircle2 size={16} /> Sync complete!
+                                                </span>
+                                            )}
+                                            {reindexState.status === 'error' && (
+                                                <span className="text-red-500 text-sm font-medium animate-in fade-in">Sync failed. Check console.</span>
+                                            )}
+                                        </div>
+                                        {reindexState.status === 'indexing' && (
+                                            <div className="space-y-1">
+                                                <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                                                    <div 
+                                                        className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                                                        style={{ width: `${reindexState.total > 0 ? Math.round((reindexState.progress / reindexState.total) * 100) : 0}%` }}
+                                                    />
+                                                </div>
+                                                <p className="text-xs text-gray-500">
+                                                    Indexing {reindexState.progress} / {reindexState.total} chunks ({reindexState.total > 0 ? Math.round((reindexState.progress / reindexState.total) * 100) : 0}%) — Please wait...
+                                                </p>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>

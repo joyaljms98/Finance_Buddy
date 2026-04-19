@@ -135,3 +135,27 @@ async def delete_transaction(
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Transaction not found or unauthorized")
     return {"message": "Transaction deleted"}
+
+@router.put("/transactions/{trans_id}", response_model=Transaction)
+async def update_transaction(
+    trans_id: str,
+    trans_in: Transaction,
+    current_user: dict = Depends(get_current_active_user),
+    db=Depends(get_database)
+) -> Any:
+    trans_data = trans_in.dict(exclude={"id"})
+    
+    # Do not allow modifying user_id
+    trans_data.pop("user_id", None)
+
+    result = await db.cashbook_transactions.update_one(
+        {"_id": ObjectId(trans_id), "user_id": current_user["user_id"]},
+        {"$set": trans_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Transaction not found or unauthorized")
+        
+    trans_data["_id"] = trans_id
+    trans_data["id"] = trans_id
+    return trans_data

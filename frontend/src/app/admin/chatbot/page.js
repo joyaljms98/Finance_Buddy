@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useContext, useEffect, useState } from 'react';
-import { Bot, Save, Database, Sliders, MessageSquare, PanelLeftOpen, PanelLeftClose } from 'lucide-react';
+import { Bot, Save, Database, Sliders, MessageSquare, PanelLeftOpen, PanelLeftClose, RefreshCw, Loader2, CheckCircle2 } from 'lucide-react';
 import { AdminSidebarContext } from '@/components/AdminSidebarWrapper';
 import RAGDocsViewer from '@/components/RAGDocsViewer';
 import TestChatbotDrawer from '@/components/TestChatbotDrawer';
@@ -26,6 +26,7 @@ const AdminChatbot = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [ollamaModels, setOllamaModels] = useState([]);
     const [isTestDrawerOpen, setIsTestDrawerOpen] = useState(false);
+    const [reindexState, setReindexState] = useState({ status: 'idle', progress: 0, total: 0 });
 
     useEffect(() => {
         const fetchSettings = async () => {
@@ -73,12 +74,25 @@ const AdminChatbot = () => {
 
     const handleReindex = async () => {
         try {
-            const res = await api.post('/chatbot/reindex', {});
-            alert(res.data.message || "Knowledge base re-indexing started in background.");
+            await api.post('/chatbot/reindex', {});
+            setReindexState({ status: 'indexing', progress: 0, total: 0 });
+            startPolling();
         } catch (err) {
             console.error(err);
             alert("Failed to start re-indexing. Please check your folder path.");
         }
+    };
+
+    const startPolling = () => {
+        const poll = setInterval(async () => {
+            try {
+                const res = await api.get('/chatbot/reindex/progress');
+                setReindexState(res.data);
+                if (res.data.status !== 'indexing') {
+                    clearInterval(poll);
+                }
+            } catch (e) { clearInterval(poll); }
+        }, 1500);
     };
 
 
@@ -209,7 +223,7 @@ const AdminChatbot = () => {
                                 </div>
 
                                 <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl text-sm text-blue-800">
-                                    <span className="font-bold">Knowledge Base Status:</span> 24 Documents Indexed. Last synced 2 hours ago.
+                                    <span className="font-bold">Knowledge Base Status:</span> Please ensure your files are inside <code>{settings.rag_folder_path || "the folder"}</code> before syncing.
                                 </div>
 
                                 <div className="space-y-4">
@@ -232,13 +246,42 @@ const AdminChatbot = () => {
                                         />
                                         <p className="text-xs text-gray-500 mt-1">Number of similar documents to retrieve for context.</p>
                                     </div>
-                                    <div className="pt-4 border-t border-gray-100 flex items-center justify-between">
-                                        <button 
-                                            onClick={handleReindex} 
-                                            className="text-blue-600 font-medium hover:text-blue-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                                        >
-                                            Sync Knowledge Base (Incremental)
-                                        </button>
+                                    <div className="pt-4 border-t border-gray-100 space-y-3">
+                                        <div className="flex items-center gap-3">
+                                            <button 
+                                                onClick={handleReindex}
+                                                disabled={reindexState.status === 'indexing'}
+                                                className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-all active:scale-95 disabled:cursor-not-allowed flex items-center gap-2"
+                                            >
+                                                {reindexState.status === 'indexing' ? (
+                                                    <Loader2 size={16} className="animate-spin" />
+                                                ) : (
+                                                    <RefreshCw size={16} />
+                                                )}
+                                                {reindexState.status === 'indexing' ? 'Syncing...' : 'Sync Knowledge Base'}
+                                            </button>
+                                            {reindexState.status === 'completed' && (
+                                                <span className="text-green-600 text-sm font-medium flex items-center gap-1 animate-in fade-in">
+                                                    <CheckCircle2 size={16} /> Sync complete!
+                                                </span>
+                                            )}
+                                            {reindexState.status === 'error' && (
+                                                <span className="text-red-500 text-sm font-medium animate-in fade-in">Sync failed. Check console.</span>
+                                            )}
+                                        </div>
+                                        {reindexState.status === 'indexing' && (
+                                            <div className="space-y-1">
+                                                <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                                                    <div 
+                                                        className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                                                        style={{ width: `${reindexState.total > 0 ? Math.round((reindexState.progress / reindexState.total) * 100) : 0}%` }}
+                                                    />
+                                                </div>
+                                                <p className="text-xs text-gray-500">
+                                                    Indexing {reindexState.progress} / {reindexState.total} chunks ({reindexState.total > 0 ? Math.round((reindexState.progress / reindexState.total) * 100) : 0}%) — Please wait...
+                                                </p>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
