@@ -37,6 +37,42 @@ class GeminiEmbeddingFunction(EmbeddingFunction):
         return [e.values for e in result.embeddings]
 
 
+class OllamaEmbeddingFunction(EmbeddingFunction):
+    """Calls Ollama's /api/embeddings endpoint for local offline embeddings.
+    Requires: ollama pull nomic-embed-text
+    """
+
+    def __init__(self, model: str = "nomic-embed-text", endpoint: str = "http://127.0.0.1:11434"):
+        import urllib.request as _urllib
+        import json as _json
+        self._model = model
+        self._endpoint = endpoint.rstrip('/')
+        # Verify connectivity on init
+        try:
+            req = _urllib.Request(f"{self._endpoint}/api/tags")
+            with _urllib.urlopen(req, timeout=5):
+                pass
+        except Exception as e:
+            print(f"[RAG] Ollama not reachable at {self._endpoint}: {e}")
+
+    def __call__(self, input: List[str]) -> List[List[float]]:
+        import urllib.request as _urllib
+        import json as _json
+        embeddings = []
+        for text in input:
+            payload = _json.dumps({"model": self._model, "prompt": text}).encode()
+            req = _urllib.Request(
+                f"{self._endpoint}/api/embeddings",
+                data=payload,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with _urllib.urlopen(req, timeout=30) as resp:
+                data = _json.loads(resp.read().decode())
+            embeddings.append(data["embedding"])
+        return embeddings
+
+
 # ---------------------------------------------------------------------------
 # Document loader helpers
 # ---------------------------------------------------------------------------
@@ -106,6 +142,8 @@ class RAGSystem:
 
         self.is_initialized: bool = False
         self._init_error: Optional[str] = None
+        self._ollama_endpoint: str = "http://127.0.0.1:11434"
+        self._collection_name: str = "rag_docs_gemini"
 
         self.reindex_progress: int = 0
         self.reindex_total: int = 0
@@ -140,42 +178,64 @@ class RAGSystem:
 
         try:
             base_dir = Path(__file__).resolve().parent
-            db_dir = base_dir / "chroma_db"
+            chroma_path = str(base_dir / "chroma_db")
+            os.makedirs(chroma_path, exist_ok=True)
 
-            # Always set up ChromaDB with Gemini embeddings for RAG retrieval
-            # This works regardless of whether chat uses Gemini or Ollama
-            from app.core.config import get_settings
-            app_settings = get_settings()
-            api_key = app_settings.GEMINI_API_KEY
+            # Store endpoint for later use
+            self._ollama_endpoint = ollama_endpoint
 
-            if api_key:
+            # Determine embedding function and ChromaDB collection name based on model
+            NOMIC_MODELS = {"nomic-embed-text"}
+            is_nomic = embedding_model in NOMIC_MODELS
+
+            if is_nomic:
+                self._embedding_fn = OllamaEmbeddingFunction(
+                    model=embedding_model,
+                    endpoint=ollama_endpoint,
+                )
+                self._collection_name = f"rag_docs_{embedding_model.replace('-', '_').replace(':', '_')}"
+            else:
+                # Default: Gemini online embedding
+                from app.core.config import get_settings
+                app_settings = get_settings()
+                api_key = app_settings.GEMINI_API_KEY
+                if not api_key:
+                    raise ValueError("GEMINI_API_KEY is not set in Backend/.env")
                 from google import genai
                 self._genai_client = genai.Client(api_key=api_key)
                 self._embedding_fn = GeminiEmbeddingFunction(api_key=api_key, model=embedding_model)
+                self._collection_name = "rag_docs_gemini"
 
-                chroma_path = str(db_dir / "gemini")
-                os.makedirs(chroma_path, exist_ok=True)
-                self._chroma_client = chromadb.PersistentClient(path=chroma_path)
-                self._collection = self._chroma_client.get_or_create_collection(
-                    name="rag_docs",
-                    embedding_function=self._embedding_fn,
-                )
-            else:
-                print("[RAG] WARNING: GEMINI_API_KEY not set. RAG document retrieval will be disabled.")
+            # Set up shared ChromaDB client with model-specific collection
+            self._chroma_client = chromadb.PersistentClient(path=chroma_path)
+            self._collection = self._chroma_client.get_or_create_collection(
+                name=self._collection_name,
+                embedding_function=self._embedding_fn,
+            )
 
-            if provider == "ollama":
-                from langchain_ollama import ChatOllama, OllamaEmbeddings
+            # Also set up Gemini LLM client if not already set (for chat generation)
+            if provider == "gemini":
+                from app.core.config import get_settings
+                app_settings = get_settings()
+                api_key = app_settings.GEMINI_API_KEY
+                if not api_key:
+                    raise ValueError("GEMINI_API_KEY is not set in Backend/.env")
+                if not self._genai_client:
+                    from google import genai
+                    self._genai_client = genai.Client(api_key=api_key)
 
+            elif provider == "ollama":
+                from langchain_ollama import ChatOllama
                 self._ollama_llm = ChatOllama(
                     model=ai_model,
                     base_url=ollama_endpoint,
                     temperature=temperature,
                 )
-            elif provider != "gemini":
+            else:
                 raise ValueError(f"Unknown provider: {provider}")
 
             self.is_initialized = True
-            print(f"[RAG] Initialized with provider={provider}, model={ai_model}")
+            print(f"[RAG] Initialized: provider={provider}, model={ai_model}, embedding={embedding_model}, collection={self._collection_name}")
 
         except Exception as e:
             self._init_error = str(e)
@@ -192,7 +252,7 @@ class RAGSystem:
             return False
 
         if not os.path.isabs(rag_folder_path):
-            app_dir = Path(__file__).resolve().parent.parent # Backend/app
+            app_dir = Path(__file__).resolve().parent.parent  # Backend/app
             resolved_path = app_dir / rag_folder_path
             if resolved_path.exists():
                 rag_folder_path = str(resolved_path)
@@ -202,7 +262,8 @@ class RAGSystem:
             return False
 
         base_dir = Path(__file__).resolve().parent
-        state_file = base_dir / "chroma_db" / "index_state.json"
+        # Use collection-specific state file to avoid cross-model contamination
+        state_file = base_dir / "chroma_db" / f"index_state_{self._collection_name}.json"
         
         current_state = {}
         supported_ext = {'.pdf', '.txt', '.md'}

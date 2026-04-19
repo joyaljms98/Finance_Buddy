@@ -94,9 +94,13 @@ const EditorChatbot = () => {
         const poll = setInterval(async () => {
             try {
                 const res = await api.get('/chatbot/reindex/progress');
-                setReindexState(res.data);
-                if (res.data.status !== 'indexing') {
+                const data = res.data;
+                if (data.status !== 'indexing') {
                     clearInterval(poll);
+                    setReindexState(data);
+                    setTimeout(() => setReindexState({ status: 'idle', progress: 0, total: 0 }), 5000);
+                } else {
+                    setReindexState(data);
                 }
             } catch (e) { clearInterval(poll); }
         }, 1500);

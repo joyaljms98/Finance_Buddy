@@ -15,7 +15,7 @@ const AdminChatbot = () => {
         ai_model: 'gemini-2.0-flash',
         provider: 'gemini',
         ollama_endpoint: 'http://127.0.0.1:11434',
-        embedding_model: 'models/gemini-embedding-001',
+        embedding_model: 'gemini-embedding-001',
         temperature: 0.7,
         max_tokens: 500,
         chunk_size: 1000,
@@ -87,9 +87,14 @@ const AdminChatbot = () => {
         const poll = setInterval(async () => {
             try {
                 const res = await api.get('/chatbot/reindex/progress');
-                setReindexState(res.data);
-                if (res.data.status !== 'indexing') {
+                const data = res.data;
+                if (data.status !== 'indexing') {
                     clearInterval(poll);
+                    // Freeze at completed/error for 5 seconds so user can see it
+                    setReindexState(data);
+                    setTimeout(() => setReindexState({ status: 'idle', progress: 0, total: 0 }), 5000);
+                } else {
+                    setReindexState(data);
                 }
             } catch (e) { clearInterval(poll); }
         }, 1500);
@@ -165,6 +170,22 @@ const AdminChatbot = () => {
                                             )}
                                         </optgroup>
                                     </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Embedding Model</label>
+                                    <select
+                                        value={settings.embedding_model}
+                                        onChange={(e) => setSettings({...settings, embedding_model: e.target.value})}
+                                        className="w-full p-2.5 border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                    >
+                                        <optgroup label="☁️ Online (Gemini)">
+                                            <option value="gemini-embedding-001">gemini-embedding-001 (Recommended, Online)</option>
+                                        </optgroup>
+                                        <optgroup label="🖥️ Offline (Ollama — run: ollama pull nomic-embed-text)">
+                                            <option value="nomic-embed-text">nomic-embed-text (Local, Privacy-first)</option>
+                                        </optgroup>
+                                    </select>
+                                    <p className="text-xs text-gray-500 mt-1">⚠️ Changing this requires a full re-sync. Each model uses its own separate index.</p>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Creativity (Temperature)</label>

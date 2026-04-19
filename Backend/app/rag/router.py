@@ -300,16 +300,18 @@ async def chat_endpoint(
             if request.include_cashbook:
                 tx_cursor = (
                     db.cashbook_transactions.find({"user_id": current_user["user_id"]})
-                    .sort("date", -1)
-                    .limit(10)
+                    .sort([("date", -1), ("_id", -1)])  # compound sort: newest date first, then newest inserted
+                    .limit(20)
                 )
-                transactions = await tx_cursor.to_list(length=10)
+                transactions = await tx_cursor.to_list(length=20)
                 context_data["RecentCashbook"] = [
                     {
                         "date": tx.get("date"),
                         "amount": tx.get("amount"),
                         "type": tx.get("type"),
+                        "head": tx.get("headId", ""),
                         "desc": tx.get("description", ""),
+                        "recurring": tx.get("isRecurring", False),
                     }
                     for tx in transactions
                 ]

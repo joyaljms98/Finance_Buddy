@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Sparkles, Plus, MessageSquare, Search, Trash2, FileText, X, Save, Palette, PanelLeftClose, PanelLeftOpen, Settings2, AlertTriangle, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Send, Bot, User, Sparkles, Plus, MessageSquare, Search, Trash2, FileText, X, Save, Palette, PanelLeftClose, PanelLeftOpen, Settings2, AlertTriangle, ToggleLeft, ToggleRight, CheckCircle2 } from 'lucide-react';
 import api from '@/lib/api';
 
 export default function ChatPage() {
@@ -27,10 +27,12 @@ export default function ChatPage() {
 
     // --- RAG SCOPE SETTINGS ---
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [isScopeModified, setIsScopeModified] = useState(false);
+    const [scopeSaved, setScopeSaved] = useState(false);
     const [ragScope, setRagScope] = useState({
         include_profile: true,
         include_rag_docs: true,
-        include_cashbook: false,
+        include_cashbook: true,
         include_goals: false,
         include_budget: false
     });
@@ -76,6 +78,22 @@ export default function ChatPage() {
     useEffect(() => {
         localStorage.setItem('fb_chat_scope', JSON.stringify(ragScope));
     }, [ragScope]);
+
+    const handleScopeChange = (key, value) => {
+        setRagScope(prev => ({ ...prev, [key]: value }));
+        setIsScopeModified(true);
+        setScopeSaved(false);
+    };
+
+    const handleSaveScope = () => {
+        localStorage.setItem('fb_chat_scope', JSON.stringify(ragScope));
+        setIsScopeModified(false);
+        setScopeSaved(true);
+        setTimeout(() => {
+            setScopeSaved(false);
+            setIsSettingsOpen(false);
+        }, 1500);
+    };
 
     const fetchHistory = async () => {
         try {
@@ -353,26 +371,43 @@ export default function ChatPage() {
                             <div className="space-y-3">
                                 <label className="flex items-center justify-between text-sm text-gray-800 font-medium cursor-pointer">
                                     <span>Profile Information</span>
-                                    <input type="checkbox" checked={ragScope.include_profile} onChange={(e) => setRagScope({...ragScope, include_profile: e.target.checked})} className="accent-blue-600 w-4 h-4" />
+                                    <input type="checkbox" checked={ragScope.include_profile} onChange={(e) => handleScopeChange('include_profile', e.target.checked)} className="accent-blue-600 w-4 h-4" />
                                 </label>
                                 <label className="flex items-center justify-between text-sm text-gray-800 font-medium cursor-pointer">
                                     <span>RAG Documents Library</span>
-                                    <input type="checkbox" checked={ragScope.include_rag_docs} onChange={(e) => setRagScope({...ragScope, include_rag_docs: e.target.checked})} className="accent-blue-600 w-4 h-4" />
+                                    <input type="checkbox" checked={ragScope.include_rag_docs} onChange={(e) => handleScopeChange('include_rag_docs', e.target.checked)} className="accent-blue-600 w-4 h-4" />
                                 </label>
-                                
                                 <label className="flex items-center justify-between text-sm text-gray-800 font-medium cursor-pointer">
                                     <span>Include CashBook Details</span>
-                                    <input type="checkbox" checked={ragScope.include_cashbook} onChange={(e) => setRagScope({...ragScope, include_cashbook: e.target.checked})} className="accent-blue-600 w-4 h-4" />
+                                    <input type="checkbox" checked={ragScope.include_cashbook} onChange={(e) => handleScopeChange('include_cashbook', e.target.checked)} className="accent-blue-600 w-4 h-4" />
                                 </label>
                                 <label className="flex items-center justify-between text-sm text-gray-800 font-medium cursor-pointer">
                                     <span>Include Goals</span>
-                                    <input type="checkbox" checked={ragScope.include_goals} onChange={(e) => setRagScope({...ragScope, include_goals: e.target.checked})} className="accent-blue-600 w-4 h-4" />
+                                    <input type="checkbox" checked={ragScope.include_goals} onChange={(e) => handleScopeChange('include_goals', e.target.checked)} className="accent-blue-600 w-4 h-4" />
                                 </label>
                                 <label className="flex items-center justify-between text-sm text-gray-800 font-medium cursor-pointer">
                                     <span>Include Budgets</span>
-                                    <input type="checkbox" checked={ragScope.include_budget} onChange={(e) => setRagScope({...ragScope, include_budget: e.target.checked})} className="accent-blue-600 w-4 h-4" />
+                                    <input type="checkbox" checked={ragScope.include_budget} onChange={(e) => handleScopeChange('include_budget', e.target.checked)} className="accent-blue-600 w-4 h-4" />
                                 </label>
                             </div>
+
+                            <button
+                                onClick={handleSaveScope}
+                                className={`mt-4 w-full py-2 rounded-xl text-sm font-bold transition-all active:scale-95 flex items-center justify-center gap-2 ${
+                                    scopeSaved
+                                        ? 'bg-green-500 text-white'
+                                        : isScopeModified
+                                        ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                                        : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                }`}
+                                disabled={!isScopeModified && !scopeSaved}
+                            >
+                                {scopeSaved ? (
+                                    <><CheckCircle2 size={15} /> Saved!</>
+                                ) : (
+                                    <><Save size={15} /> Save Context Settings</>
+                                )}
+                            </button>
                         </div>
                     )}
 
