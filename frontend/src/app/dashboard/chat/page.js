@@ -308,7 +308,7 @@ export default function ChatPage() {
     );
 
     return (
-        <main className="flex-1 w-full h-[calc(100vh-64px)] md:h-screen flex flex-col text-gray-800 font-sans p-4 animate-in fade-in zoom-in-95 duration-500">
+        <main className="flex-1 w-full h-[calc(100vh-64px)] md:h-screen max-h-screen flex flex-col text-gray-800 font-sans p-4 animate-in fade-in zoom-in-95 duration-500 overflow-hidden">
 
             <header className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100 shrink-0 relative z-20">
                 <div className="flex items-center gap-4">
@@ -425,7 +425,7 @@ export default function ChatPage() {
 
             <div className="flex-1 flex flex-col md:flex-row gap-6 overflow-hidden relative z-10">
                 {/* --- LEFT SIDEBAR (History) --- */}
-                <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col overflow-hidden shrink-0 transition-all duration-300 ease-in-out ${isSidebarOpen ? 'w-full md:w-80' : 'w-0 border-none hidden overflow-hidden'}`}>
+                <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col overflow-hidden shrink-0 transition-all duration-300 ease-in-out ${isSidebarOpen ? 'w-full md:w-80 max-h-[40vh] md:max-h-none' : 'w-0 border-none hidden overflow-hidden'}`}>
                 <div className="p-6 border-b border-gray-50 space-y-4">
                     <div className="flex items-center justify-between">
                         <h2 className="text-xl font-bold text-gray-900">Chat History</h2>
@@ -481,9 +481,9 @@ export default function ChatPage() {
                 </div>
 
             {/* --- RIGHT MAIN CHAT AREA --- */}
-            <div className="flex-1 bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col overflow-hidden h-full">
+            <div className="flex-1 bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col overflow-hidden min-h-0">
 
-                <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-6 space-y-6 relative">
+                <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-6 space-y-6 relative min-h-0">
                     <div className="max-w-3xl mx-auto space-y-6">
                         {messages.map((msg, i) => (
                             <div
@@ -603,7 +603,7 @@ export default function ChatPage() {
                     </div>
                 )}
 
-                <div className="p-4 bg-white border-t border-gray-100 shrink-0">
+                <div className="p-4 bg-white border-t border-gray-100 shrink-0 sticky bottom-0 z-10">
                     <form onSubmit={handleSend} className="max-w-3xl mx-auto relative flex items-center gap-2">
                         <input
                             type="text"

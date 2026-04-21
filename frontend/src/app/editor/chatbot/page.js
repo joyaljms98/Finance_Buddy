@@ -25,7 +25,7 @@ const EditorChatbot = () => {
         ollama_endpoint: 'http://127.0.0.1:11434',
         embedding_model: 'gemini-embedding-001',
         temperature: 0.7,
-        max_tokens: 500,
+        max_tokens: 4096,
         chunk_size: 1000,
         top_k: 5,
         system_prompt: `You are Finance Buddy, an AI financial advisor designed for the Indian context. \nYour goal is to help users manage their personal finances, explain tax concepts, and provide budgeting advice.\n\nRules:\n1. Always be polite and encouraging.\n2. Use Simple English.\n3. When discussing tax, refer to the latest Indian IT Act laws (FY 2025-26).\n4. Do not provide specific stock recommendations (e.g., "Buy Reliance"). instead, explain concepts (e.g., "What is a Blue-chip stock?").`,
@@ -81,12 +81,20 @@ const EditorChatbot = () => {
 
     const handleReindex = async () => {
         try {
+            // BUG 7 FIX: Always save current settings first so the backend
+            // reindexes using the folder path & model the editor sees on screen,
+            // not a stale value from the database.
+            if (isDirty) {
+                const saveRes = await api.post('/chatbot/settings', settings);
+                setInitialSettings(saveRes.data);
+                setSettings(saveRes.data);
+            }
             await api.post('/chatbot/reindex', {});
             setReindexState({ status: 'indexing', progress: 0, total: 0 });
             startPolling();
         } catch (err) {
             console.error(err);
-            alert("Failed to start re-indexing. Please check your folder path.");
+            alert("Failed to start re-indexing. Please check your folder path and ensure settings are saved.");
         }
     };
 

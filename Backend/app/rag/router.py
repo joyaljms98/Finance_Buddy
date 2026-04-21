@@ -35,7 +35,7 @@ DEFAULT_SETTINGS = {
     "max_tokens": 4096,
     "chunk_size": 1000,
     "top_k": 5,
-    "system_prompt": "You are Finance Buddy, an expert Indian CA and AI financial advisor. Provide concise, polite financial strategies using the provided context and RAG documents. Use Indian IT Act (FY 2025-26) for tax. Evaluate goal feasibility via 'BankBalances' and suggest actionable steps. Use simple English, avoid specific stock tips, and state clearly if data is insufficient.",
+    "system_prompt": "You are Finance Buddy, an expert Indian CA and AI financial advisor. Provide concise, polite financial strategies using the provided context and RAG documents. When mentioning information retrieved from documents, explicitly cite the source filename. Use Indian IT Act (FY 2025-26) for tax. Evaluate goal feasibility via 'BankBalances' and suggest actionable steps. Use simple English, avoid specific stock tips, and state clearly if data is insufficient.",
 }
 
 # Deprecated / non-canonical model names → correct stable API names
@@ -151,9 +151,10 @@ async def force_reindex(
 
     def run_reindex():
         try:
+            # force_rebuild=True: always override existing index when admin explicitly clicks Sync
             rag_system.build_or_update_vectorstore(
                 rag_folder_path,
-                force_rebuild=False,
+                force_rebuild=True,
             )
         except Exception as e:
             print(f"[RAG] Background re-index error: {e}")
@@ -271,31 +272,57 @@ async def chat_endpoint(
         full_response = ""
 
         if request.chat_mode == "context":
+            # --- Pre-fetch reference maps for enrichment ---
+            # This ensures the AI sees "Salary" instead of a raw DB ID.
+            heads_cursor = db.cashbook_heads.find({"user_id": current_user["user_id"]})
+            heads_list = await heads_cursor.to_list(length=500)
+            head_map = {str(h["_id"]): h.get("name", "Unknown") for h in heads_list}
+            
+            books_cursor = db.cashbook_books.find({"user_id": current_user["user_id"]})
+            books_list = await books_cursor.to_list(length=100)
+            book_map = {str(b["_id"]): b.get("name", "Unknown") for b in books_list}
+
+            # --- Fetch Synced Data (Goals, Budgets, and Notes) ---
+            synced_data = await db.user_synced_data.find_one({"user_id": current_user["user_id"]})
+            if not synced_data:
+                synced_data = {}
+
             # --- Build YAML context ---
             context_data = {"Profiles": []}
+            # Always initialize profiles list — used as a fallback in goals block
+            # even when include_profile=False, so it must exist.
+            profiles = []
 
             if request.include_profile:
                 profiles_cursor = db.tax_profiles.find({"user_id": current_user["user_id"]})
                 profiles = await profiles_cursor.to_list(length=10)
 
+                # Always include ALL profiles so the chatbot has full family context
                 for idx, p in enumerate(profiles):
-                    p_name = str(p.get("name", "")).lower()
-                    p_relation = str(p.get("profileFor", "")).lower()
-                    query_lower = request.query.lower()
+                    clean_p = _clean_dict_for_yaml(p)
+                    clean_p.pop("_id", None)
+                    clean_p.pop("user_id", None)
+                    
+                    # Handle goals explicitly if specifically requested or present in profile
+                    if not request.include_goals:
+                        clean_p.pop("goals", None)
+                    
+                    context_data["Profiles"].append(clean_p)
 
-                    is_main = idx == 0 or "me" in p_relation or p_name == current_user["name"].lower()
-                    name_words = filter(None, p_name.split())
-                    is_mentioned = any(word in query_lower for word in name_words) or (
-                        p_relation and p_relation in query_lower
-                    )
-
-                    if is_main or is_mentioned:
-                        clean_p = _clean_dict_for_yaml(p)
-                        clean_p.pop("_id", None)
-                        clean_p.pop("user_id", None)
-                        if not request.include_goals:
-                            clean_p.pop("goals", None)
-                        context_data["Profiles"].append(clean_p)
+            if request.include_goals:
+                # Prioritize goals from user_synced_data, fallback to profiles
+                goals = synced_data.get("goals", [])
+                if goals:
+                    # If it's a list (structured), clean it; if string, keep it
+                    if isinstance(goals, list):
+                        context_data["FinancialGoals"] = [_clean_dict_for_yaml(g) if isinstance(g, dict) else g for g in goals]
+                    else:
+                        context_data["FinancialGoals"] = goals
+                else:
+                    # Collect goals from all profiles if synced_data goals are empty
+                    all_p_goals = [p.get("goals") for p in profiles if p.get("goals")]
+                    if all_p_goals:
+                        context_data["FinancialGoals"] = all_p_goals
 
             if request.include_cashbook:
                 tx_cursor = (
@@ -309,7 +336,8 @@ async def chat_endpoint(
                         "date": tx.get("date"),
                         "amount": tx.get("amount"),
                         "type": tx.get("type"),
-                        "head": tx.get("headId", ""),
+                        "head": head_map.get(str(tx.get("headId", "")), "Other"),
+                        "book": book_map.get(str(tx.get("bookId", "")), "Main"),
                         "desc": tx.get("description", ""),
                         "recurring": tx.get("isRecurring", False),
                     }
@@ -352,12 +380,24 @@ async def chat_endpoint(
                 ]
 
             if request.include_budget:
-                budget_cursor = db.budgets.find({"user_id": current_user["user_id"]}).limit(5)
-                budgets = await budget_cursor.to_list(length=5)
-                context_data["Budgets"] = [
-                    _clean_dict_for_yaml({k: v for k, v in b.items() if k not in ("_id", "user_id")})
-                    for b in budgets
-                ]
+                # 1. Try fetching from dedicated budgets collection (if used)
+                budget_cursor = db.budgets.find({"user_id": current_user["user_id"]}).limit(10)
+                db_budgets = await budget_cursor.to_list(length=10)
+                
+                # 2. Try fetching from synced_data (which is where the dashboard saves them)
+                synced_budgets = synced_data.get("budgets", [])
+                
+                context_data["Budgets"] = []
+                # Combine both sources if necessary, but prioritize synced_budgets
+                all_raw_budgets = (db_budgets or []) + (synced_budgets if isinstance(synced_budgets, list) else [])
+                
+                for b in all_raw_budgets:
+                    if not isinstance(b, dict): continue
+                    clean_b = {k: v for k, v in b.items() if k not in ("_id", "user_id")}
+                    # Enrich headId if present
+                    if "headId" in clean_b:
+                        clean_b["category"] = head_map.get(str(clean_b["headId"]), clean_b.get("category", "Unknown"))
+                    context_data["Budgets"].append(_clean_dict_for_yaml(clean_b))
 
             yaml_context = yaml.dump(context_data, default_flow_style=False, sort_keys=False)
 

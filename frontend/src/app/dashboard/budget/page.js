@@ -128,10 +128,9 @@ export default function BudgetMakerPage() {
                 const activeExpenses = activeBudgetContainer ? activeBudgetContainer.data.expenses : [];
                 
                 const activeG = parsed.filter(g => 
-                    g.status === 'in_progress' && 
-                    !g.completed && 
-                    g.emiAmount > 0 &&
-                    !activeExpenses.find(e => e.title.includes(g.name))
+                    g.status === 'active' && 
+                    Number(g.installments?.emi || 0) > 0 &&
+                    !activeExpenses.find(e => e.title.includes(g.title))
                 );
                 
                 setUnsyncedGoals(activeG);
@@ -144,7 +143,7 @@ export default function BudgetMakerPage() {
         const newExpenses = [...activeBudget.expenses];
         unsyncedGoals.forEach(g => {
             // Assume emi is monthly, budget is yearly
-            newExpenses.push({ id: Date.now() + Math.random(), title: `Goal: ${g.name}`, amount: (g.emiAmount || 0) * 12 });
+            newExpenses.push({ id: Date.now() + Math.random(), title: `Goal: ${g.title}`, amount: (Number(g.installments?.emi) || 0) * 12 });
         });
         updateActiveBudget({ expenses: newExpenses });
         setUnsyncedGoals([]);
@@ -234,7 +233,11 @@ export default function BudgetMakerPage() {
         transactions.forEach(t => {
             if (t.isRecurring) {
                 const headName = heads.find(h => h.id === t.headId)?.name || 'Unknown';
-                const annualAmount = t.recurringType === 'monthly' ? t.amount * 12 : t.amount;
+                const recurringMultipliers = {
+                    'daily': 365, 'weekly': 52, 'bi-weekly': 26,
+                    'monthly': 12, 'quarterly': 4, 'half-yearly': 2, 'yearly': 1
+                };
+                const annualAmount = t.amount * (recurringMultipliers[t.recurringType] || 1);
 
                 if (t.type === 'income') {
                     yearlyIncomes.push({ id: `i-${Date.now()}-${t.id}`, title: t.description || headName, amount: annualAmount });

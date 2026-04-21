@@ -27,3 +27,5 @@ class Transaction(BaseModel):
     date: str
     isRecurring: bool = False
     recurringType: str = "none"
+    recurringStart: Optional[str] = None
+    recurringEnd: Optional[str] = None

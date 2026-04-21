@@ -28,7 +28,7 @@ class ChatSettings(BaseModel):
     ollama_endpoint: str
     embedding_model: str
     temperature: float = 0.7
-    max_tokens: int = 500
+    max_tokens: int = 4096
     chunk_size: int = 1000
     top_k: int = 5
     system_prompt: str

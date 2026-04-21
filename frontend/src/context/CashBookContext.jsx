@@ -117,7 +117,7 @@ export const CashBookProvider = ({ children }) => {
     };
 
     // -- Transaction Methods --
-    const addTransaction = async ({ bookId, headId, type, amount, date, description, isRecurring, recurringType }) => {
+    const addTransaction = async ({ bookId, headId, type, amount, date, description, isRecurring, recurringType, recurringStart, recurringEnd }) => {
         try {
             const res = await api.post('/cashbook/transactions', {
                 bookId,
@@ -127,7 +127,9 @@ export const CashBookProvider = ({ children }) => {
                 date: date || new Date().toISOString(),
                 description: description || '',
                 isRecurring: !!isRecurring,
-                recurringType: recurringType || 'none'
+                recurringType: recurringType || 'none',
+                recurringStart: recurringStart || null,
+                recurringEnd: recurringEnd || null
             });
             setTransactions(prev => [...prev, res.data]);
         } catch (err) { console.error(err); }

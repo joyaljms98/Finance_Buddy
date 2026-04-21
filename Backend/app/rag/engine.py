@@ -316,13 +316,13 @@ class RAGSystem:
         if force_rebuild and docs:
             # ONLY drop collection if we actually read docs successfully
             try:
-                self._chroma_client.delete_collection("rag_docs")
+                self._chroma_client.delete_collection(self._collection_name)
                 self._collection = self._chroma_client.get_or_create_collection(
-                    name="rag_docs",
+                    name=self._collection_name,
                     embedding_function=self._embedding_fn,
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[RAG] Error recreating collection {self._collection_name}: {e}")
 
         if not docs and added_or_modified:
             print("[RAG] No readable content found in added/modified files.")
@@ -378,13 +378,21 @@ class RAGSystem:
     # Retrieval
     # ------------------------------------------------------------------
     def retrieve(self, query: str) -> str:
-        """Retrieve relevant document chunks for a query."""
+        """Retrieve relevant document chunks for a query with source metadata."""
         if not self._collection:
             return ""
         try:
             results = self._collection.query(query_texts=[query], n_results=self.top_k)
-            if results and results["documents"]:
-                return "\n\n---\n\n".join(results["documents"][0])
+            if results and results["documents"] and results["documents"][0]:
+                context_parts = []
+                # Pair documents with their metadata
+                for doc, meta in zip(results["documents"][0], results["metadatas"][0]):
+                    source = meta.get("source", "Unknown Source")
+                    # Use basename to avoid leaking full local paths to the AI/user
+                    source_name = os.path.basename(source)
+                    context_parts.append(f"--- From Document: {source_name} ---\n{doc}")
+                
+                return "\n\n".join(context_parts)
         except Exception as e:
             print(f"[RAG] Retrieval error: {e}")
         return ""
@@ -426,35 +434,42 @@ class RAGSystem:
 
     async def summarize_query(self, query: str) -> str:
         """Extract core intent and metadata from complex queries for better RAG retrieval."""
-        if not self.is_initialized or len(query) < 50:
+        if not self.is_initialized or len(query) < 40:
             return query
             
-        sys_prompt = "Extract the core financial intent and keywords from the user's query into a concise search term of max 15 words. Do not answer the question, just summarize the intent for vector search."
+        sys_prompt = "Extract the core financial intent and keywords from the user's query into a concise search term of max 15 words. Do not answer the question, just summarize the intent for vector search. If the query is already simple, return it as is."
         try:
             if self.provider == "gemini" and self._genai_client:
                 from google.genai import types
                 import asyncio
+                
                 def _call():
-                    res = self._genai_client.models.generate_content(
-                        model=self.ai_model,
-                        contents=query,
-                        config=types.GenerateContentConfig(
-                            system_instruction=sys_prompt,
-                            temperature=0.3,
-                            max_output_tokens=50,
-                        ),
-                    )
-                    return res.text
-                loop = asyncio.get_event_loop()
+                    try:
+                        res = self._genai_client.models.generate_content(
+                            model=self.ai_model,
+                            contents=query,
+                            config=types.GenerateContentConfig(
+                                system_instruction=sys_prompt,
+                                temperature=0.1,
+                                max_output_tokens=40,
+                            ),
+                        )
+                        return res.text
+                    except Exception as inner_e:
+                        print(f"[RAG] Summarization SDK error: {inner_e}")
+                        return query
+
+                loop = asyncio.get_running_loop()
                 summary = await loop.run_in_executor(None, _call)
-                return summary.strip() if summary else query
+                return summary.strip() if (summary and len(summary.strip()) > 2) else query
+            
             elif self.provider == "ollama" and getattr(self, "_ollama_llm", None):
                 from langchain.schema import HumanMessage, SystemMessage
                 messages = [SystemMessage(content=sys_prompt), HumanMessage(content=query)]
                 res = await self._ollama_llm.ainvoke(messages)
                 return res.content.strip() if res and res.content else query
         except Exception as e:
-            print(f"[RAG] Summarization error: {e}")
+            print(f"[RAG] Summarization outer error: {e}")
             
         return query
 
@@ -499,14 +514,17 @@ class RAGSystem:
     # Provider-specific streaming
     # ------------------------------------------------------------------
     async def _gemini_stream(self, query: str, system_prompt: str) -> AsyncGenerator[str, None]:
-        """Stream response from Gemini using google-genai SDK."""
+        """Stream response from Gemini using google-genai SDK with true real-time yielding."""
         from google.genai import types
         import asyncio
+        import queue
+        import threading
 
-        try:
-            def _sync_stream():
-                """Run the synchronous streaming in a thread."""
-                collected = []
+        q = queue.Queue()
+        sentinel = object()
+
+        def _sync_stream_worker():
+            try:
                 for chunk in self._genai_client.models.generate_content_stream(
                     model=self.ai_model,
                     contents=query,
@@ -517,17 +535,25 @@ class RAGSystem:
                     ),
                 ):
                     if chunk.text:
-                        collected.append(chunk.text)
-                return collected
+                        q.put(chunk.text)
+            except Exception as e:
+                q.put(f"\n\n⚠️ Generation error: {str(e)}")
+            finally:
+                q.put(sentinel)
 
-            # Run sync streaming in thread pool and yield chunks
-            loop = asyncio.get_event_loop()
-            chunks = await loop.run_in_executor(None, _sync_stream)
-            for chunk_text in chunks:
-                yield chunk_text
+        threading.Thread(target=_sync_stream_worker, daemon=True).start()
 
-        except Exception as e:
-            yield f"\n\n⚠️ Generation error: {str(e)}"
+        loop = asyncio.get_running_loop()
+        while True:
+            # Pull from the queue in an async-friendly way
+            try:
+                chunk = await loop.run_in_executor(None, q.get)
+                if chunk is sentinel:
+                    break
+                yield chunk
+            except Exception as e:
+                yield f"\n\n⚠️ Stream processing error: {str(e)}"
+                break
 
     async def _ollama_stream(self, query: str, system_prompt: str) -> AsyncGenerator[str, None]:
         """Stream response from Ollama using langchain."""

@@ -7,6 +7,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import FYPicker from '@/components/FYPicker';
 import { useFinancialYear } from '@/context/FinancialYearContext';
 import { useCashBook } from '@/context/CashBookContext';
+import { useUsers } from '@/context/UsersContext';
 import api from '../../lib/api';
 
 export default function Dashboard() {
@@ -62,14 +63,29 @@ export default function Dashboard() {
     // FY State
     const { selectedFY, setSelectedFY, fyOptions, currentFY } = useFinancialYear();
     const { books, heads, transactions } = useCashBook();
+    const { activeUser } = useUsers();
     const [goals, setGoals] = useState([]);
 
     useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const stored = JSON.parse(localStorage.getItem('finance_buddy_goals') || '[]');
+        if (typeof window === 'undefined' || !activeUser?.user_id) return;
+
+        const loadGoals = async () => {
+            // 1. Try fetching from MongoDB (same source as Goals page)
+            try {
+                const res = await api.get('/sync/data');
+                if (res.data && res.data.goals && res.data.goals.length > 0) {
+                    setGoals(res.data.goals);
+                    return;
+                }
+            } catch (e) { console.warn('Could not fetch goals from backend'); }
+
+            // 2. Fallback to user-specific localStorage key (matching Goals page)
+            const storageKey = `finance_buddy_goals_${activeUser.user_id}`;
+            const stored = JSON.parse(localStorage.getItem(storageKey) || '[]');
             setGoals(stored);
-        }
-    }, []);
+        };
+        loadGoals();
+    }, [activeUser?.user_id]);
 
     // FY Date Calculation
     const startYear = parseInt(selectedFY.split('-')[0]);

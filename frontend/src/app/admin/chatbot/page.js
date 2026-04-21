@@ -17,7 +17,7 @@ const AdminChatbot = () => {
         ollama_endpoint: 'http://127.0.0.1:11434',
         embedding_model: 'gemini-embedding-001',
         temperature: 0.7,
-        max_tokens: 500,
+        max_tokens: 4096,
         chunk_size: 1000,
         top_k: 5,
         system_prompt: `You are Finance Buddy, an expert Indian CA and AI financial advisor. Provide concise, polite financial strategies using the provided context and RAG documents. Use Indian IT Act (FY 2025-26) for tax. Evaluate goal feasibility via 'BankBalances' and suggest actionable steps. Use simple English, avoid specific stock tips, and state clearly if data is insufficient.`
@@ -74,12 +74,20 @@ const AdminChatbot = () => {
 
     const handleReindex = async () => {
         try {
+            // BUG 7 FIX: Always save current settings first so the backend
+            // reindexes using the folder path & model the admin sees on screen,
+            // not a stale value from the database.
+            if (isDirty) {
+                const saveRes = await api.post('/chatbot/settings', settings);
+                setInitialSettings(saveRes.data);
+                setSettings(saveRes.data);
+            }
             await api.post('/chatbot/reindex', {});
             setReindexState({ status: 'indexing', progress: 0, total: 0 });
             startPolling();
         } catch (err) {
             console.error(err);
-            alert("Failed to start re-indexing. Please check your folder path.");
+            alert("Failed to start re-indexing. Please check your folder path and ensure settings are saved.");
         }
     };
 

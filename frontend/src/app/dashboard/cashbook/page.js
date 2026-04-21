@@ -1,14 +1,17 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Wallet, TrendingUp, Tags, Trash2, ArrowRightLeft, CalendarDays, X, Check, PanelLeftClose, PanelLeftOpen, Edit2 } from 'lucide-react';
+import { Plus, Wallet, TrendingUp, Tags, Trash2, ArrowRightLeft, CalendarDays, X, Check, PanelLeftClose, PanelLeftOpen, Edit2, Filter, Calendar } from 'lucide-react';
 import { useCashBook } from '@/context/CashBookContext';
+import { useFinancialYear } from '@/context/FinancialYearContext';
+import FYPicker from '@/components/FYPicker';
 
 export default function CashBookPage() {
     const {
         books, heads, transactions, isLoaded,
         addBook, deleteBook, addHead, addTransaction, updateTransaction, deleteTransaction, getBookBalance
     } = useCashBook();
+    const { selectedFY, setSelectedFY, fyOptions, currentFY } = useFinancialYear();
 
     const [activeBookId, setActiveBookId] = useState(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -16,6 +19,31 @@ export default function CashBookPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [sortCol, setSortCol] = useState('date');
     const [sortDesc, setSortDesc] = useState(true);
+
+    // --- Date Filter State ---
+    const [filterMode, setFilterMode] = useState('all'); // 'all' | 'yearly' | 'monthly'
+    const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth()); // 0-11
+
+    // FY date range calculation
+    const startYear = parseInt(selectedFY.split('-')[0]);
+    const fyStart = new Date(startYear, 3, 1); // Apr 1
+    const fyEnd = new Date(startYear + 1, 2, 31, 23, 59, 59); // Mar 31
+
+    // Month names for FY (Apr -> Mar)
+    const fyMonths = [
+        { label: 'April', month: 3, year: startYear },
+        { label: 'May', month: 4, year: startYear },
+        { label: 'June', month: 5, year: startYear },
+        { label: 'July', month: 6, year: startYear },
+        { label: 'August', month: 7, year: startYear },
+        { label: 'September', month: 8, year: startYear },
+        { label: 'October', month: 9, year: startYear },
+        { label: 'November', month: 10, year: startYear },
+        { label: 'December', month: 11, year: startYear },
+        { label: 'January', month: 0, year: startYear + 1 },
+        { label: 'February', month: 1, year: startYear + 1 },
+        { label: 'March', month: 2, year: startYear + 1 },
+    ];
 
     // Modal States
     const [showTxModal, setShowTxModal] = useState(false);
@@ -33,10 +61,27 @@ export default function CashBookPage() {
         }
     }, [isLoaded, books, activeBookId]);
 
+    // Date filter helper
+    const filterByDate = (txList) => {
+        if (filterMode === 'all') return txList;
+        return txList.filter(t => {
+            const d = new Date(t.date);
+            if (filterMode === 'yearly') {
+                return d >= fyStart && d <= fyEnd;
+            }
+            if (filterMode === 'monthly') {
+                const m = fyMonths[selectedMonth];
+                return d.getMonth() === m.month && d.getFullYear() === m.year;
+            }
+            return true;
+        });
+    };
+
     const activeBook = books.find(b => b.id === activeBookId);
-    const activeTransactions = transactions
-        .filter(t => t.bookId === activeBookId && (searchTerm ? t.description.toLowerCase().includes(searchTerm.toLowerCase()) || (heads.find(h => h.id === t.headId)?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) : true))
-        .sort((a, b) => {
+    const activeTransactions = filterByDate(
+        transactions
+            .filter(t => t.bookId === activeBookId && (searchTerm ? t.description.toLowerCase().includes(searchTerm.toLowerCase()) || (heads.find(h => h.id === t.headId)?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) : true))
+    ).sort((a, b) => {
             let valA, valB;
             if (sortCol === 'date') { valA = new Date(a.date).getTime(); valB = new Date(b.date).getTime(); }
             else if (sortCol === 'description') { valA = a.description.toLowerCase(); valB = b.description.toLowerCase(); }
@@ -49,7 +94,7 @@ export default function CashBookPage() {
         });
 
     // -- Forms --
-    const [txForm, setTxForm] = useState({ type: 'expense', headId: '', amount: '', date: new Date().toISOString().slice(0, 16), description: '', isRecurring: false, recurringType: 'monthly' });
+    const [txForm, setTxForm] = useState({ type: 'expense', headId: '', amount: '', date: new Date().toISOString().slice(0, 16), description: '', isRecurring: false, recurringType: 'monthly', recurringStart: '', recurringEnd: '' });
     const [bookForm, setBookForm] = useState({ name: '', initialBalance: '' });
     const [headForm, setHeadForm] = useState({ name: '', type: 'expense' });
 
@@ -61,18 +106,59 @@ export default function CashBookPage() {
             date: tx.date.slice(0, 16),
             description: tx.description,
             isRecurring: tx.isRecurring,
-            recurringType: tx.recurringType
+            recurringType: tx.recurringType,
+            recurringStart: tx.recurringStart || '',
+            recurringEnd: tx.recurringEnd || ''
         });
         setEditingTxId(tx.id);
         setShowTxModal(true);
     };
 
-    const handleAddTransaction = (e) => {
+    // --- Recurring date generation helper ---
+    const generateRecurringDates = (start, end, type) => {
+        const dates = [];
+        let current = new Date(start);
+        const endDate = new Date(end);
+        while (current <= endDate) {
+            dates.push(new Date(current));
+            switch (type) {
+                case 'daily': current.setDate(current.getDate() + 1); break;
+                case 'weekly': current.setDate(current.getDate() + 7); break;
+                case 'bi-weekly': current.setDate(current.getDate() + 14); break;
+                case 'monthly': current.setMonth(current.getMonth() + 1); break;
+                case 'quarterly': current.setMonth(current.getMonth() + 3); break;
+                case 'half-yearly': current.setMonth(current.getMonth() + 6); break;
+                case 'yearly': current.setFullYear(current.getFullYear() + 1); break;
+                default: current.setMonth(current.getMonth() + 1); break;
+            }
+        }
+        return dates;
+    };
+
+    const handleAddTransaction = async (e) => {
         e.preventDefault();
         if (!txForm.headId || !txForm.amount) return;
 
         if (editingTxId) {
             updateTransaction(editingTxId, { ...txForm, bookId: activeBookId });
+        } else if (txForm.isRecurring && txForm.recurringStart && txForm.recurringEnd) {
+            // Generate all occurrences from start to end
+            const dates = generateRecurringDates(txForm.recurringStart, txForm.recurringEnd, txForm.recurringType);
+            for (const d of dates) {
+                await addTransaction({
+                    bookId: activeBookId,
+                    headId: txForm.headId,
+                    type: txForm.type,
+                    amount: txForm.amount,
+                    date: d.toISOString(),
+                    description: txForm.description,
+                    isRecurring: true,
+                    recurringType: txForm.recurringType,
+                    recurringStart: txForm.recurringStart,
+                    recurringEnd: txForm.recurringEnd
+                });
+            }
+            alert(`Created ${dates.length} recurring ${txForm.recurringType} transactions from ${new Date(txForm.recurringStart).toLocaleDateString()} to ${new Date(txForm.recurringEnd).toLocaleDateString()}.`);
         } else {
             addTransaction({
                 bookId: activeBookId,
@@ -88,7 +174,7 @@ export default function CashBookPage() {
 
         setShowTxModal(false);
         setEditingTxId(null);
-        setTxForm({ type: 'expense', headId: '', amount: '', date: new Date().toISOString().slice(0, 16), description: '', isRecurring: false, recurringType: 'monthly' });
+        setTxForm({ type: 'expense', headId: '', amount: '', date: new Date().toISOString().slice(0, 16), description: '', isRecurring: false, recurringType: 'monthly', recurringStart: '', recurringEnd: '' });
     };
 
     const handleAddBook = (e) => {
@@ -138,7 +224,8 @@ export default function CashBookPage() {
                         <p className="text-sm text-gray-500">Manage your wallets, accounts, and daily transactions.</p>
                     </div>
                 </div>
-                <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
+                <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0 items-center">
+                    <FYPicker selectedFY={selectedFY} onChange={setSelectedFY} options={fyOptions} currentFY={currentFY} />
                     <button onClick={() => setShowHeadModal(true)} className="whitespace-nowrap flex items-center gap-2 px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 font-medium rounded-xl border border-gray-200 transition-colors">
                         <Tags size={16} /> Manage Heads
                     </button>
@@ -243,6 +330,37 @@ export default function CashBookPage() {
                                         </p>
                                     </div>
                                 </div>
+                            </div>
+
+                            {/* Date Filter Bar */}
+                            <div className="mt-4 flex flex-wrap items-center gap-3 bg-white rounded-2xl shadow-sm border border-gray-100 p-3">
+                                <div className="flex bg-gray-100 rounded-xl p-1">
+                                    {['all', 'yearly', 'monthly'].map(mode => (
+                                        <button
+                                            key={mode}
+                                            onClick={() => setFilterMode(mode)}
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition-all ${filterMode === mode ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                                        >
+                                            {mode === 'all' ? 'All Time' : mode === 'yearly' ? `FY ${selectedFY}` : 'Monthly'}
+                                        </button>
+                                    ))}
+                                </div>
+                                {filterMode === 'monthly' && (
+                                    <select
+                                        value={selectedMonth}
+                                        onChange={e => setSelectedMonth(Number(e.target.value))}
+                                        className="bg-white border border-gray-200 rounded-xl px-3 py-1.5 text-xs font-bold outline-none focus:border-blue-500 transition-colors"
+                                    >
+                                        {fyMonths.map((m, idx) => (
+                                            <option key={idx} value={idx}>{m.label} {m.year}</option>
+                                        ))}
+                                    </select>
+                                )}
+                                {filterMode !== 'all' && (
+                                    <span className="text-[10px] text-gray-400 font-medium ml-auto">
+                                        Showing {activeTransactions.length} transaction{activeTransactions.length !== 1 ? 's' : ''}
+                                    </span>
+                                )}
                             </div>
 
                             {viewMode === 'transactions' && transactions.filter(t => t.bookId === activeBookId).length > 0 && (
@@ -485,13 +603,28 @@ export default function CashBookPage() {
                                     <span className="font-semibold text-gray-800">Is this a Recurring setup?</span>
                                 </label>
                                 {txForm.isRecurring && (
-                                    <div className="flex flex-wrap gap-4 ml-8 animate-in fade-in slide-in-from-top-2">
-                                        {['daily', 'weekly', 'bi-weekly', 'monthly', 'quarterly', 'half-yearly', 'yearly'].map(rt => (
-                                            <label key={rt} className="flex items-center gap-2 cursor-pointer">
-                                                <input type="radio" name="recType" value={rt} checked={txForm.recurringType === rt} onChange={e => setTxForm({ ...txForm, recurringType: e.target.value })} className="text-blue-600 focus:ring-blue-500" />
-                                                <span className="text-sm font-medium capitalize">{rt.replace("-", " ")}</span>
-                                            </label>
-                                        ))}
+                                    <div className="animate-in fade-in slide-in-from-top-2 space-y-3">
+                                        <div className="flex flex-wrap gap-4 ml-8">
+                                            {['daily', 'weekly', 'bi-weekly', 'monthly', 'quarterly', 'half-yearly', 'yearly'].map(rt => (
+                                                <label key={rt} className="flex items-center gap-2 cursor-pointer">
+                                                    <input type="radio" name="recType" value={rt} checked={txForm.recurringType === rt} onChange={e => setTxForm({ ...txForm, recurringType: e.target.value })} className="text-blue-600 focus:ring-blue-500" />
+                                                    <span className="text-sm font-medium capitalize">{rt.replace("-", " ")}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                        {!editingTxId && (
+                                            <div className="grid grid-cols-2 gap-3 ml-8 bg-white/80 p-3 rounded-xl border border-blue-100">
+                                                <div className="space-y-1">
+                                                    <label className="text-xs font-bold text-blue-600 uppercase tracking-wider">Start Date</label>
+                                                    <input type="date" required value={txForm.recurringStart} onChange={e => setTxForm({ ...txForm, recurringStart: e.target.value })} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500" />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <label className="text-xs font-bold text-blue-600 uppercase tracking-wider">End Date</label>
+                                                    <input type="date" required value={txForm.recurringEnd} onChange={e => setTxForm({ ...txForm, recurringEnd: e.target.value })} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500" />
+                                                </div>
+                                                <p className="col-span-2 text-[10px] text-gray-500 italic">Transactions will be auto-generated for every {txForm.recurringType} occurrence between these dates.</p>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
