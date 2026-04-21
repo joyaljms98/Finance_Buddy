@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Wallet, TrendingUp, Tags, Trash2, ArrowRightLeft, CalendarDays, X, Check, PanelLeftClose, PanelLeftOpen, Edit2, Filter, Calendar } from 'lucide-react';
+import { Plus, Wallet, TrendingUp, Tags, Trash2, ArrowRightLeft, CalendarDays, X, Check, PanelLeftClose, PanelLeftOpen, Edit2, Filter, Calendar, Flame } from 'lucide-react';
 import { useCashBook } from '@/context/CashBookContext';
 import { useFinancialYear } from '@/context/FinancialYearContext';
 import FYPicker from '@/components/FYPicker';
@@ -92,8 +92,51 @@ export default function CashBookPage() {
             if (valA > valB) return sortDesc ? -1 : 1;
             return 0;
         });
+    // -- Streak Computation (all transactions in active book, ignoring date filter) --
+    const bookStreak = React.useMemo(() => {
+        const bookTxs = transactions.filter(t => t.bookId === activeBookId);
+        if (bookTxs.length === 0) return { current: 0, longest: 0 };
 
-    // -- Forms --
+        // Collect unique calendar day strings "YYYY-MM-DD"
+        const daySet = new Set(
+            bookTxs.map(t => new Date(t.date).toISOString().slice(0, 10))
+        );
+        const days = [...daySet].sort(); // ascending
+
+        const today = new Date().toISOString().slice(0, 10);
+        const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+
+        // Current streak: count backwards from today (or yesterday if no entry today yet)
+        let current = 0;
+        let checkDate = daySet.has(today) ? new Date(today) : new Date(yesterday);
+        if (!daySet.has(today) && !daySet.has(yesterday)) {
+            current = 0;
+        } else {
+            for (let i = days.length - 1; i >= 0; i--) {
+                const d = days[i];
+                const expected = checkDate.toISOString().slice(0, 10);
+                if (d === expected) {
+                    current++;
+                    checkDate = new Date(checkDate.getTime() - 86400000);
+                } else if (d < expected) {
+                    break;
+                }
+            }
+        }
+
+        // Longest streak
+        let longest = 1, run = 1;
+        for (let i = 1; i < days.length; i++) {
+            const prev = new Date(days[i - 1]);
+            const curr = new Date(days[i]);
+            const diff = (curr - prev) / 86400000;
+            if (diff === 1) { run++; longest = Math.max(longest, run); }
+            else { run = 1; }
+        }
+
+        return { current, longest: Math.max(longest, current) };
+    }, [transactions, activeBookId]);
+
     const [txForm, setTxForm] = useState({ type: 'expense', headId: '', amount: '', date: new Date().toISOString().slice(0, 16), description: '', isRecurring: false, recurringType: 'monthly', recurringStart: '', recurringEnd: '' });
     const [bookForm, setBookForm] = useState({ name: '', initialBalance: '' });
     const [headForm, setHeadForm] = useState({ name: '', type: 'expense' });
@@ -360,6 +403,29 @@ export default function CashBookPage() {
                                     <span className="text-[10px] text-gray-400 font-medium ml-auto">
                                         Showing {activeTransactions.length} transaction{activeTransactions.length !== 1 ? 's' : ''}
                                     </span>
+                                )}
+                            </div>
+
+                            {/* Streak Widget */}
+                            <div className="mt-3 flex items-center gap-3 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-100 rounded-2xl px-4 py-3">
+                                <div className="flex items-center gap-1.5">
+                                    <Flame size={18} className={`${bookStreak.current > 0 ? 'text-orange-500' : 'text-gray-300'}`} />
+                                    <span className="text-xs font-bold text-gray-700">Current Streak:</span>
+                                    <span className={`text-sm font-black ${bookStreak.current >= 7 ? 'text-orange-600' : bookStreak.current >= 3 ? 'text-amber-600' : bookStreak.current > 0 ? 'text-yellow-600' : 'text-gray-400'}`}>
+                                        {bookStreak.current} day{bookStreak.current !== 1 ? 's' : ''}
+                                    </span>
+                                </div>
+                                <div className="w-px h-4 bg-orange-200"></div>
+                                <div className="flex items-center gap-1.5">
+                                    <Flame size={14} className="text-amber-400" />
+                                    <span className="text-xs font-bold text-gray-500">Best:</span>
+                                    <span className="text-sm font-black text-amber-600">{bookStreak.longest} day{bookStreak.longest !== 1 ? 's' : ''}</span>
+                                </div>
+                                {bookStreak.current === 0 && (
+                                    <span className="ml-auto text-[10px] text-gray-400 italic">Record a transaction today to start your streak! 🎯</span>
+                                )}
+                                {bookStreak.current >= 7 && (
+                                    <span className="ml-auto text-[10px] text-orange-500 font-bold">🔥 On fire! Keep it up!</span>
                                 )}
                             </div>
 

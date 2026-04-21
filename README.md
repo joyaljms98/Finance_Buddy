@@ -15,16 +15,16 @@ Built on a robust, multi-role architecture supporting **Users, Editors, and Admi
 *   **Search & Filter:** Instantly locate transactions across various fiscal years.
 
 ### 👤 Advanced Tax Profiler (Indian Context)
-*   **Contextual Onboarding:** Meticulously maps your financial status (Resident, NRI, Deemed Resident).
-*   **Regime Optimization:** Intelligent comparison between Old vs. New (115BAC) tax regimes.
-*   **Comprehensive Deductions:** Guided inputs for Sec 80C, 80D, 80U, 80DD, and specific chronic diseases.
-*   **Modern Assets:** Support for VDA (Crypto) and Capital Gains reporting.
+*   **Contextual Onboarding:** Meticulously maps your financial status (Resident, NRI, Deemed Resident). 
+*   **Regime Optimization:** Intelligent comparison between Old vs. New (115BAC) tax regimes. 
+*   **Comprehensive Deductions:** Guided inputs for Sec 80C, 80D, 80U, 80DD, and specific chronic diseases. 
+*   **Modern Assets:** Support for VDA (Crypto) and Capital Gains reporting. 
 
 ### 🤖 Hyper-Contextual AI Advisor (RAG)
-*   **Contextual Intelligence:** Unlike generic bots, this advisor "senses" your live balances, goals, and tax status before answering.
-*   **Retrieval-Augmented Generation:** Queries a curated knowledge base of CA-level documentation to provide professional advice.
-*   **Model Flexibility:** Support for **Google Gemini 2.0+** and localized, secure **Ollama** models.
-*   **Real-time Insights:** Instant feasibility evaluations for your investment goals.
+*   **Contextual Intelligence:** Unlike generic bots, this advisor "senses" your live balances, goals, and tax status before answering. 
+*   **Retrieval-Augmented Generation:** Queries a curated knowledge base of CA-level documentation to provide professional advice. 
+*   **Model Flexibility:** Support for **Google Gemini 2.0+** and localized, secure **Ollama** models. 
+*   **Real-time Insights:** Instant feasibility evaluations for your investment goals. 
 
 ### 👑 Enterprise-Grade Admin & Editor Portals
 *   **Role-Based Access Control (RBAC):** Granular permissions for content curators.
@@ -170,6 +170,24 @@ This batch script will automatically:
 | ChromaDB | — | ✅ | Vector DB | ✅ Yes |
 | **Google GenAI** | — | ✅ | AI | ✅ **Yes** (Gemini model) |
 | **LangChain** | — | ✅ | AI | ✅ **Yes** (orchestration) |
+
+---
+
+Here is the updated technology stack table with descriptions of their purpose in the project:
+
+| Tech | Frontend | Backend | Status | Purpose / Description |
+| :--- | :---: | :---: | :--- | :--- |
+| **Next.js** | ✅ | — | Core | React framework for building the user interface and handling client-side routing. |
+| **Tailwind CSS** | ✅ | — | Core | Utility-first CSS framework used for rapid and consistent responsive UI styling. |
+| **Lucide React** | ✅ | — | Core | Modern and consistent icon library used across the dashboard and menus. |
+| **Recharts** | ✅ | — | Data viz | Sophisticated charting library used to visualize financial stats and goal progress. |
+| **FastAPI** | — | ✅ | Core | High-performance Python backend framework providing the REST API endpoints. |
+| **Bcrypt** | — | ✅ | Security | Industry-standard hashing used to securely store user passwords in the database. |
+| **Python-Jose** | — | ✅ | Auth | Library for generating and verifying JWT tokens to handle secure user sessions. |
+| **MongoDB** | — | ✅ | Database | Primary document database storing user profiles, transactions, and goal data. |
+| **ChromaDB** | — | ✅ | Vector DB | Vector storage for document embeddings, enabling the AI's document retrieval (RAG). |
+| **Google GenAI** | — | ✅ | AI | Integration with Google Gemini models to provide intelligent financial advice. |
+| **LangChain** | — | ✅ | AI | Orchestration framework used to chain AI prompts, tools, and RAG context together. |
 
 ---
 

@@ -248,17 +248,17 @@ export default function EditorArticlesPage() {
 
                             {/* Articles List / Grid */}
                             {viewMode === 'list' ? (
-                                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-bottom-2">
-                                    <table className="w-full text-left border-collapse">
+                                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-x-auto animate-in fade-in slide-in-from-bottom-2">
+                                    <table className="w-full text-left border-collapse" style={{minWidth: '800px'}}>
                                         <thead>
                                             <tr className="bg-gray-50 text-gray-500 text-sm border-b border-gray-100">
-                                                <th className="p-4 font-medium">Title</th>
-                                                <th className="p-4 font-medium">Section</th>
-                                                <th className="p-4 font-medium">Category</th>
-                                                <th className="p-4 font-medium">Date</th>
-                                                <th className="p-4 font-medium">Status</th>
-                                                <th className="p-4 font-medium">Views</th>
-                                                <th className="p-4 font-medium text-right">Actions</th>
+                                                <th className="p-4 font-medium" style={{minWidth:'220px'}}>Title</th>
+                                                <th className="p-4 font-medium" style={{minWidth:'110px'}}>Section</th>
+                                                <th className="p-4 font-medium" style={{minWidth:'110px'}}>Category</th>
+                                                <th className="p-4 font-medium" style={{minWidth:'100px'}}>Date</th>
+                                                <th className="p-4 font-medium" style={{minWidth:'90px'}}>Status</th>
+                                                <th className="p-4 font-medium" style={{minWidth:'70px'}}>Views</th>
+                                                <th className="p-4 font-medium text-right" style={{minWidth:'100px'}}>Actions</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-100">
@@ -292,9 +292,9 @@ export default function EditorArticlesPage() {
                                                             {article.status}
                                                         </span>
                                                     </td>
-                                                    <td className="p-4 text-sm text-gray-500">{article.read_count || 0}</td>
+                                                    <td className="p-4 text-sm text-gray-500 whitespace-nowrap">{article.read_count || 0}</td>
                                                     <td className="p-4 text-right">
-                                                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <div className="flex items-center justify-end gap-1">
                                                             {canEdit && (
                                                                 <button
                                                                     onClick={() => setEditingArticle(article)}
@@ -358,7 +358,9 @@ export default function EditorArticlesPage() {
                                                             </button>
                                                         )}
                                                         {canDelete && (
-                                                            <button className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
+                                                            <button
+                                                                onClick={() => handleDeleteArticle(article.id)}
+                                                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
                                                                 <Trash2 size={16} />
                                                             </button>
                                                         )}

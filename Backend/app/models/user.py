@@ -32,6 +32,7 @@ class TaxProfile(BaseModel):
     id: Optional[str] = None
     user_id: Optional[str] = None
     profileFor: Optional[str] = "me (main)"
+    gender: Optional[str] = None  # "Male" | "Female" | "Non-binary" | "Prefer not to say"
     name: Optional[str] = None
     dob: Optional[str] = None
     ageCategory: Optional[str] = None

@@ -1,13 +1,44 @@
 from fastapi import APIRouter, Depends, HTTPException
 from typing import Any, List
-from datetime import datetime
+from datetime import datetime, date, timedelta
 from bson import ObjectId
 
 from app.db.mongodb import get_database
 from app.models.cashbook import Book, Head, Transaction
-from app.api.deps import get_current_active_user
+from app.api.deps import get_current_active_user, get_current_active_admin
 
 router = APIRouter()
+
+# --- Streak Helper ---
+def compute_streaks(dates: list) -> dict:
+    """Given a list of date objects, compute current and longest streaks."""
+    if not dates:
+        return {"current_streak": 0, "longest_streak": 0}
+
+    dates = sorted(set(dates))
+    today = date.today()
+
+    # Current streak: walk backwards from today
+    current = 0
+    check = today
+    for d in reversed(dates):
+        if d == check:
+            current += 1
+            check -= timedelta(days=1)
+        elif d < check:
+            break
+
+    # Longest streak
+    longest = 1
+    run = 1
+    for i in range(1, len(dates)):
+        if dates[i] - dates[i - 1] == timedelta(days=1):
+            run += 1
+            longest = max(longest, run)
+        else:
+            run = 1
+
+    return {"current_streak": current, "longest_streak": max(longest, current)}
 
 # --- Books ---
 @router.get("/books", response_model=List[Book])
@@ -144,8 +175,6 @@ async def update_transaction(
     db=Depends(get_database)
 ) -> Any:
     trans_data = trans_in.dict(exclude={"id"})
-    
-    # Do not allow modifying user_id
     trans_data.pop("user_id", None)
 
     result = await db.cashbook_transactions.update_one(
@@ -159,3 +188,37 @@ async def update_transaction(
     trans_data["_id"] = trans_id
     trans_data["id"] = trans_id
     return trans_data
+
+# --- Admin: Streaks for all users ---
+@router.get("/streaks/all")
+async def get_all_user_streaks(
+    db=Depends(get_database),
+    current_admin: dict = Depends(get_current_active_admin)
+) -> Any:
+    """Admin-only. Returns transaction streaks (current and longest) for every user."""
+    pipeline = [
+        {"$project": {"user_id": 1, "date": 1}},
+        {"$group": {
+            "_id": "$user_id",
+            "dates": {"$push": "$date"}
+        }}
+    ]
+    results = await db.cashbook_transactions.aggregate(pipeline).to_list(length=10000)
+
+    streaks = []
+    for r in results:
+        uid = r["_id"]
+        raw_dates = r.get("dates", [])
+        parsed = []
+        for d in raw_dates:
+            try:
+                if isinstance(d, datetime):
+                    parsed.append(d.date())
+                elif isinstance(d, str):
+                    parsed.append(datetime.fromisoformat(d.replace("Z", "+00:00")).date())
+            except Exception:
+                pass
+        s = compute_streaks(parsed)
+        streaks.append({"user_id": uid, **s})
+
+    return streaks

@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState, useContext } from 'react';
-import { Search, Edit, Trash2, PanelLeftOpen, PanelLeftClose, UserPlus } from 'lucide-react';
+import React, { useState, useContext, useEffect } from 'react';
+import { Search, Edit, Trash2, PanelLeftOpen, PanelLeftClose, UserPlus, Flame } from 'lucide-react';
 import { AdminSidebarContext } from '@/components/AdminSidebarWrapper';
 import { useUsers } from '@/context/UsersContext';
 import { usePermissions } from '@/context/PermissionsContext';
+import api from '@/lib/api';
 
 export default function AdminUsersPage() {
     const { isSidebarOpen, setIsSidebarOpen } = useContext(AdminSidebarContext);
@@ -24,6 +25,25 @@ export default function AdminUsersPage() {
     const [formData, setFormData] = useState({ name: '', email: '', role: 'User', status: 'Active' });
     const [formError, setFormError] = useState('');
     const [toastMessage, setToastMessage] = useState('');
+
+    // Streak data
+    const [userStreakMap, setUserStreakMap] = useState({});
+
+    useEffect(() => {
+        const fetchStreaks = async () => {
+            try {
+                const res = await api.get('/cashbook/streaks/all', {
+                    headers: { Authorization: `Bearer ${localStorage.getItem('finance_buddy_token')}` }
+                });
+                const map = {};
+                (res.data || []).forEach(s => { map[s.user_id] = s; });
+                setUserStreakMap(map);
+            } catch (err) {
+                console.error('Could not load streaks', err);
+            }
+        };
+        fetchStreaks();
+    }, []);
 
     const filteredUsers = users
         .filter(user => user.role !== 'Admin') // Hide search/admin from list if needed, or filter specifically
@@ -180,13 +200,14 @@ export default function AdminUsersPage() {
                                         <th className="p-4 font-medium">User ID</th>
                                         <th className="p-4 font-medium">Role</th>
                                         <th className="p-4 font-medium">Status</th>
+                                        <th className="p-4 font-medium">Tx Streak</th>
                                         <th className="p-4 font-medium text-right">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
                                     {filteredUsers.length === 0 ? (
                                         <tr>
-                                            <td colSpan="5" className="p-8 text-center text-gray-400">No users found matching your criteria.</td>
+                                            <td colSpan="6" className="p-8 text-center text-gray-400">No users found matching your criteria.</td>
                                         </tr>
                                     ) : (
                                         filteredUsers.map((user) => (
@@ -214,6 +235,21 @@ export default function AdminUsersPage() {
                                                     <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${user.status === 'Active' ? 'bg-green-50 text-green-700 border-green-200' : user.status === 'Suspended' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-gray-50 text-gray-600 border-gray-200'}`}>
                                                         {user.status}
                                                     </span>
+                                                </td>
+                                                <td className="p-4">
+                                                    {userStreakMap[user.user_id] ? (
+                                                        <div className="flex flex-col gap-0.5">
+                                                            <div className="flex items-center gap-1">
+                                                                <Flame size={13} className={userStreakMap[user.user_id].current_streak > 0 ? 'text-orange-500' : 'text-gray-300'} />
+                                                                <span className={`text-sm font-black ${userStreakMap[user.user_id].current_streak >= 7 ? 'text-orange-600' : userStreakMap[user.user_id].current_streak >= 3 ? 'text-amber-600' : userStreakMap[user.user_id].current_streak > 0 ? 'text-yellow-600' : 'text-gray-400'}`}>
+                                                                    {userStreakMap[user.user_id].current_streak}d
+                                                                </span>
+                                                            </div>
+                                                            <span className="text-[10px] text-gray-400 font-medium">Best: {userStreakMap[user.user_id].longest_streak}d</span>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-xs text-gray-300 italic">No data</span>
+                                                    )}
                                                 </td>
                                                 <td className="p-4 text-right">
                                                     <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

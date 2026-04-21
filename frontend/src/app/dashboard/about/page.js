@@ -176,6 +176,7 @@ export default function AboutYou() {
         return {
             id: '',
             profileFor: 'me (main)',
+            gender: '',
             name: '',
             dob: '',
             ageCategory: 'General',
@@ -306,6 +307,10 @@ export default function AboutYou() {
         for (const key in profile) {
             normalizedProfile[key] = profile[key] === null ? '' : profile[key];
         }
+        // Migrate legacy combined profileFor value to 'partner'
+        if (normalizedProfile.profileFor === 'Wife / husband / partner') {
+            normalizedProfile.profileFor = 'partner';
+        }
 
         setFormData(normalizedProfile);
         setEditingId(profile.id);
@@ -423,17 +428,22 @@ export default function AboutYou() {
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Profile For <span className="text-red-500">*</span></label>
                                         <select name="profileFor" value={formData.profileFor} onChange={handleInputChange} className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none bg-white">
                                             <option value="me (main)">Me (Main)</option>
-                                            <option value="Wife / husband / partner">Wife / Husband / Partner</option>
+                                            <option value="wife">Wife</option>
+                                            <option value="husband">Husband</option>
+                                            <option value="partner">Partner</option>
                                             <option value="father">Father</option>
                                             <option value="mother">Mother</option>
                                             <option value="brother">Brother</option>
                                             <option value="sister">Sister</option>
                                             <option value="grandfather">Grandfather</option>
+                                            <option value="grandmother">Grandmother</option>
+                                            <option value="son">Son</option>
+                                            <option value="daughter">Daughter</option>
                                             <option value="friend">Friend</option>
                                             <option value="customers">Customers</option>
                                         </select>
                                     </div>
-                                    <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-6">
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-1">Legal Full Name <span className="text-red-500">*</span></label>
                                             <input type="text" name="name" value={formData.name} onChange={handleInputChange} placeholder="As per PAN Card" className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none" />
@@ -441,6 +451,16 @@ export default function AboutYou() {
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth <span className="text-red-500">*</span></label>
                                             <input type="date" name="dob" value={formData.dob} onChange={handleInputChange} className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+                                            <select name="gender" value={formData.gender} onChange={handleInputChange} className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none bg-white">
+                                                <option value="">Not specified</option>
+                                                <option value="Male">Male</option>
+                                                <option value="Female">Female</option>
+                                                <option value="Non-binary">Non-binary</option>
+                                                <option value="Prefer not to say">Prefer not to say</option>
+                                            </select>
                                         </div>
                                     </div>
                                 </div>
@@ -809,8 +829,11 @@ export default function AboutYou() {
                                     </button>
                                 </div>
                                 <h3 className="text-xl font-bold text-gray-900 mb-1">{p.name}</h3>
-                                <p className="text-sm font-medium text-gray-500 mb-4 capitalize">{p.profileFor || 'Me (Main)'}</p>
-                                
+                                <p className="text-sm font-medium text-gray-500 mb-3 capitalize">{p.profileFor || 'Me (Main)'}</p>
+                                {p.gender && (
+                                    <span className="inline-block text-[10px] px-2 py-0.5 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-md font-medium mb-3">{p.gender}</span>
+                                )}
+
                                 <div className="mt-auto space-y-2">
                                     <div className="flex items-center justify-between text-xs text-gray-600 bg-gray-50 px-3 py-2 rounded-lg">
                                         <span className="font-semibold">Age Group</span>
